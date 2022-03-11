@@ -1,0 +1,6 @@
+.DS_Store
+*.nc
+*.tiff
+*.tif
+*.egg-info/
+.ipynb_checkpoints/

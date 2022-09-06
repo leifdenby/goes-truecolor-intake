@@ -150,7 +150,7 @@ def create_cropped_truecolor_geotiff(scene_filepaths, geotiff_filepath, bbox):
     # resolution possible will be used
     new_scn = scene_cropped.resample(resampler="native")
 
-    new_scn.save_dataset("true_color", writer="geotiff", filename=geotiff_filepath)
+    new_scn.save_dataset("true_color", writer="geotiff", filename=str(geotiff_filepath))
 
 
 def geotiff_to_netcdf(geotiff_filepath, channel1_filepath):

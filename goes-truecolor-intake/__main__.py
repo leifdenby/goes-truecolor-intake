@@ -2,10 +2,12 @@
 # coding: utf-8
 import isodate
 
+from .s3_upload import create_catalog
 from .source_data import calc_minmax_time_for_bbox, create_truecolor_scene_files
 
+
 def _bbox_arg(s):
-    bbox = [float(v) for v in s.split(',')]
+    bbox = [float(v) for v in s.split(",")]
 
     if len(bbox) != 4:
         raise Exception("`bbox` should be a list of [lat_S, lon_W, lat_N, lon_E]")
@@ -33,6 +35,10 @@ def main():
     t_min, t_max = calc_minmax_time_for_bbox(date=date, bbox=bbox)
 
     create_truecolor_scene_files(t_min=t_min, t_max=t_max, bbox=bbox)
+
+    create_catalog(
+        name="goesrgb", host_url="minio.denby.eu", remote_path="eurec4a-environment"
+    )
 
 
 if __name__ == "__main__":

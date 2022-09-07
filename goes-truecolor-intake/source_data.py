@@ -3,27 +3,27 @@
 
 
 import datetime
+from pathlib import Path
+
+import cartopy.crs as ccrs
+import matplotlib.pyplot as plt
+import numpy as np
+import rioxarray as rxr
 import satdata
 import satpy
-from pathlib import Path
-import matplotlib.pyplot as plt
-import cartopy.crs as ccrs
 import xarray as xr
-import rioxarray as rxr
 from loguru import logger
-from tqdm.auto import tqdm
 from suntime import Sun
-import isodate
-
+from tqdm.auto import tqdm
 
 DEBUG = True
 DATETIME_FORMAT = "%Y%m%dT%H%M%SZ"
 
 
-def plot_domain():
+def plot_domain(bbox):
     fig, ax = plt.subplots(subplot_kw=dict(projection=ccrs.PlateCarree()))
 
-    ax.set_extent(DOMAIN_BBOX, crs=ccrs.PlateCarree())
+    ax.set_extent(bbox, crs=ccrs.PlateCarree())
     ax.gridlines(draw_labels=["left", "bottom"])
     ax.coastlines()
 
@@ -68,13 +68,24 @@ def download_radiance_source_files(
         if DEBUG:
             N_keys = len(keys) // 2
             keys = keys[N_keys - 1 : N_keys + 2]
-        filenames = cli.download(keys, )
+        filenames = cli.download(
+            keys,
+        )
         files_per_channel[channel] = filenames
 
     if select_nearest_to_t_min:
-        scene_times = [
-            _parse_time_from_source_filename(filename=fn) in fn in files_per_channel[0]
-        ]
+        scene_times = np.array(
+            [
+                _parse_time_from_source_filename(filename=fn)
+                for fn in files_per_channel[0]
+            ]
+        )
+        t_dist = np.abs(scene_times - np.datetime64(t_min))
+        idx_nearest = np.argmin(t_dist)
+
+        files_per_channel = {
+            c: fns[idx_nearest] for (c, fns) in files_per_channel.items()
+        }
 
     return files_per_channel
 

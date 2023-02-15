@@ -8,6 +8,7 @@ from pathlib import Path
 import cartopy.crs as ccrs
 import matplotlib.pyplot as plt
 import numpy as np
+import pytz
 import rioxarray as rxr
 import satdata
 import satpy
@@ -17,7 +18,7 @@ from suntime import Sun
 from tqdm.auto import tqdm
 
 DEBUG = True
-DATETIME_FORMAT = "%Y%m%dT%H%M%SZ"
+DATETIME_FORMAT = "%Y%m%dT%H%M%SZ%z"
 
 
 def plot_domain(bbox):
@@ -47,7 +48,7 @@ def download_radiance_source_files(
 ):
     """ """
     select_nearest_to_t_min = False
-    if t_min == t_max:
+    if t_min == t_max or t_max is None:
         dt_total = datetime.timedelta(minutes=30)
         select_nearest_to_t_min = True
     else:
@@ -74,17 +75,16 @@ def download_radiance_source_files(
         files_per_channel[channel] = filenames
 
     if select_nearest_to_t_min:
-        scene_times = np.array(
-            [
-                _parse_time_from_source_filename(filename=fn)
-                for fn in files_per_channel[0]
-            ]
-        )
+        scene_times = [
+            _parse_time_from_source_filename(filename=fn) for fn in files_per_channel[1]
+        ]
+        scene_times = np.array([np.datetime64(t) for t in scene_times])
+
         t_dist = np.abs(scene_times - np.datetime64(t_min))
         idx_nearest = np.argmin(t_dist)
 
         files_per_channel = {
-            c: fns[idx_nearest] for (c, fns) in files_per_channel.items()
+            c: [fns[idx_nearest]] for (c, fns) in files_per_channel.items()
         }
 
     return files_per_channel
@@ -129,10 +129,12 @@ def create_truecolor_scene_files(t_min, t_max, bbox, make_netcdf=False, data_pat
 
     for scene_files in tqdm(scene_filesets):
         start_time = _parse_time_from_source_filename(scene_files[0])
-        start_time_str = start_time.strftime(DATETIME_FORMAT)
-        geotiff_filepath = Path(f"{start_time_str}.tif")
+        # GOES-16 timestamps are in UTC
+        start_time_str = start_time.replace(tzinfo=pytz.utc).strftime(DATETIME_FORMAT)
+        geotiff_filepath = Path(data_path) / f"{start_time_str}.tif"
+        print(geotiff_filepath)
         if not geotiff_filepath.exists():
-            create_cropped_truecolor_geotiff(
+            _create_cropped_truecolor_geotiff(
                 scene_filepaths=scene_files,
                 geotiff_filepath=geotiff_filepath,
                 bbox=bbox,
@@ -144,7 +146,7 @@ def create_truecolor_scene_files(t_min, t_max, bbox, make_netcdf=False, data_pat
             )
 
 
-def create_cropped_truecolor_geotiff(scene_filepaths, geotiff_filepath, bbox):
+def _create_cropped_truecolor_geotiff(scene_filepaths, geotiff_filepath, bbox):
     """
     Load radiance files (assumed to be channels 1, 2 and 3) in
     `scene_filepaths` and cropped with bounding-box (`bbox` given as list in
@@ -158,7 +160,8 @@ def create_cropped_truecolor_geotiff(scene_filepaths, geotiff_filepath, bbox):
     scene.load(["true_color"])
 
     # satpy bbox: (xmin, ymin, xmax, ymax), WSEN
-    ll_bbox = [bbox[0], bbox[2], bbox[1], bbox[3]]
+    s = 1.0  # add a small padding so we're sure the domain is contained
+    ll_bbox = [bbox[0] - s, bbox[2] - s, bbox[1] + s, bbox[3] + s]
     scene_cropped = scene.crop(ll_bbox=ll_bbox)
 
     # it is necessary to "resample" here because the different channels are at

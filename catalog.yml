@@ -1,0 +1,29 @@
+plugins:
+  source:
+    - module: intake_xarray
+sources:
+  landsat:
+    description: Geotiff image of Landsat Surface Reflectance Level-2 Science Product L5.
+    driver: rasterio
+#   cache:
+#     - argkey: urlpath
+#       regex: 'earth-data/landsat'
+#       type: file
+    args:
+      #urlpath: 's3://earth-data/landsat/small/LT05_L1TP_042033_{collection_date:%Y%m%d}_{processing_date:%Y%m%d}_01_T1_sr_band{band:1d}.tif'
+      urlpath: '{{ CATALOG_DIR }}/{time:%Y%m%dT%H%M%SZ}.tif'
+      chunks:
+        band: 1
+        x: 50
+        y: 50
+      concat_dim: time
+      engine: rioxarray
+#     storage_options: {'anon': True}
+#    metadata:
+#      plots:
+#        band_image:
+#          kind: 'image'
+#          x: 'x'
+#          y: 'y'
+##          groupby: 'band'
+#          rasterize: True
